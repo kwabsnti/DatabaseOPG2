@@ -102,7 +102,7 @@ namespace DatabaseOPG
             Console.WriteLine("✅ Film tilføjet");
         }
 
-        //  SLET FILM
+        //  SLET FILMe
         static void DeleteMovie()
         {
             Console.Write("Skriv TitleId der skal slettes: ");
