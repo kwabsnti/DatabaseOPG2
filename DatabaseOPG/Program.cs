@@ -1,193 +1,127 @@
-﻿namespace DatabaseOPG;
-using System;
-using System.Data.SqlClient;
+﻿using System;
+using Microsoft.Data.SqlClient;
 
-class Program
+namespace DatabaseOPG
 {
-    static string connectionString =
-        "Server=LAPTOP-12Q6A6J0;Database=ImdbDB;Trusted_Connection=True;TrustServerCertificate=True;";
-
-    static void Main()
+    class Program
     {
-        while (true)
+        //  Connection string (Windows) 
+        static string connectionString =
+            "Server=LAPTOP-12Q6A6J0;Database=ImdbDB;Trusted_Connection=True;TrustServerCertificate=True;";
+
+        static void Main()
         {
-            Console.Clear();
-            Console.WriteLine("=== IMDb Database Applikation ===");
-            Console.WriteLine("1. Søg film");
-            Console.WriteLine("2. Tilføj film");
-            Console.WriteLine("3. Opdater film");
-            Console.WriteLine("4. Slet film");
-            Console.WriteLine("0. Afslut");
-            Console.Write("\nVælg et nummer: ");
-
-            string choice = Console.ReadLine();
-
-            switch (choice)
+            while (true)
             {
-                case "1":
-                    SearchMovie();
-                    break;
-                case "2":
-                    AddMovie();
-                    break;
-                case "3":
-                    UpdateMovie();
-                    break;
-                case "4":
-                    DeleteMovie();
-                    break;
-                case "0":
-                    return;
-                default:
-                    Console.WriteLine("Ugyldigt valg.");
-                    Pause();
-                    break;
+                Console.WriteLine("\n=== DATABASE MENU ===");
+                Console.WriteLine("1. Søg film");
+                Console.WriteLine("2. Tilføj film");
+                Console.WriteLine("3. Slet film");
+                Console.WriteLine("0. Afslut");
+                Console.Write("Vælg: ");
+
+                string choice = Console.ReadLine();
+
+                switch (choice)
+                {
+                    case "1":
+                        SearchMovie();
+                        break;
+                    case "2":
+                        AddMovie();
+                        break;
+                    case "3":
+                        DeleteMovie();
+                        break;
+                    case "0":
+                        return;
+                    default:
+                        Console.WriteLine("Ugyldigt valg");
+                        break;
+                }
             }
         }
-    }
 
-    // ---------- READ ----------
-    static void SearchMovie()
-    {
-        Console.Clear();
-        Console.WriteLine("=== SØG FILM ===");
-        Console.Write("Indtast filmtitel (brug % som wildcard, fx Star%): ");
-        string search = Console.ReadLine();
-
-        using var conn = new SqlConnection(connectionString);
-        conn.Open();
-
-        string sql = @"
-            SELECT TitleId, PrimaryTitle
-            FROM app.Title
-            WHERE PrimaryTitle LIKE @search
-            ORDER BY PrimaryTitle";
-
-        using var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@search", search);
-
-        using var reader = cmd.ExecuteReader();
-
-        Console.WriteLine("\nResultater:");
-        while (reader.Read())
+        //  SØG FILM (Wildcard)
+        static void SearchMovie()
         {
-            Console.WriteLine($"{reader["TitleId"]} - {reader["PrimaryTitle"]}");
+            Console.Write("Skriv filmnavn (brug %): ");
+            string search = Console.ReadLine();
+
+            using SqlConnection conn = new SqlConnection(connectionString);
+            conn.Open();
+
+            string sql = @"
+                SELECT TitleId, PrimaryTitle, StartYear
+                FROM app.Title
+                WHERE PrimaryTitle LIKE @search
+                ORDER BY PrimaryTitle";
+
+            using SqlCommand cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@search", search);
+
+            using SqlDataReader reader = cmd.ExecuteReader();
+
+            Console.WriteLine("\nResultater:");
+            while (reader.Read())
+            {
+                Console.WriteLine(
+                    reader["TitleId"] + " | " +
+                    reader["PrimaryTitle"] + " | " +
+                    reader["StartYear"]);
+            }
         }
 
-        Pause();
-    }
-
-    // ---------- CREATE ----------
-    static void AddMovie()
-    {
-        Console.Clear();
-        Console.WriteLine("=== TILFØJ FILM ===");
-
-        Console.Write("Indtast TitleId (fx tt9999999): ");
-        string id = Console.ReadLine();
-
-        Console.Write("Indtast filmtitel: ");
-        string title = Console.ReadLine();
-
-        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(title))
+        //  TILFØJ FILM (KORREKT – INGEN NULL)
+        static void AddMovie()
         {
-            Console.WriteLine("TitleId og titel må ikke være tomme.");
-            Pause();
-            return;
-        }
+            Console.Write("TitleId (fx tt9999999): ");
+            string id = Console.ReadLine();
 
-        using var conn = new SqlConnection(connectionString);
-        conn.Open();
+            Console.Write("Titel: ");
+            string title = Console.ReadLine();
 
-        string sql = @"
-            INSERT INTO app.Title (TitleId, PrimaryTitle, TitleType)
-            VALUES (@id, @title, 'movie')";
+            Console.Write("År: ");
+            int year = int.Parse(Console.ReadLine());
 
-        using var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@id", id);
-        cmd.Parameters.AddWithValue("@title", title);
+            using SqlConnection conn = new SqlConnection(connectionString);
+            conn.Open();
 
-        try
-        {
+            string sql = @"
+                INSERT INTO app.Title
+                (TitleId, TitleType, PrimaryTitle, StartYear, IsAdult)
+                VALUES
+                (@id, 'movie', @title, @year, 0)";
+
+            using SqlCommand cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@id", id);
+            cmd.Parameters.AddWithValue("@title", title);
+            cmd.Parameters.AddWithValue("@year", year);
+
             cmd.ExecuteNonQuery();
-            Console.WriteLine("\nFilm er nu tilføjet ✔");
+            Console.WriteLine("✅ Film tilføjet");
         }
-        catch (SqlException ex)
+
+        //  SLET FILM
+        static void DeleteMovie()
         {
-            Console.WriteLine("\nFejl ved indsættelse:");
-            Console.WriteLine(ex.Message);
+            Console.Write("Skriv TitleId der skal slettes: ");
+            string id = Console.ReadLine();
+
+            using SqlConnection conn = new SqlConnection(connectionString);
+            conn.Open();
+
+            string sql = "DELETE FROM app.Title WHERE TitleId = @id";
+
+            using SqlCommand cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@id", id);
+
+            int rows = cmd.ExecuteNonQuery();
+            Console.WriteLine(rows > 0 ? "✅ Film slettet" : "❌ Ikke fundet");
         }
-
-        Pause();
-    }
-
-    // ---------- UPDATE ----------
-    static void UpdateMovie()
-    {
-        Console.Clear();
-        Console.WriteLine("=== OPDATER FILM ===");
-
-        Console.Write("Indtast TitleId på filmen: ");
-        string id = Console.ReadLine();
-
-        Console.Write("Indtast ny titel: ");
-        string title = Console.ReadLine();
-
-        using var conn = new SqlConnection(connectionString);
-        conn.Open();
-
-        string sql = @"
-            UPDATE app.Title
-            SET PrimaryTitle = @title
-            WHERE TitleId = @id";
-
-        using var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@id", id);
-        cmd.Parameters.AddWithValue("@title", title);
-
-        int rows = cmd.ExecuteNonQuery();
-
-        if (rows > 0)
-            Console.WriteLine("\nFilm opdateret ✔");
-        else
-            Console.WriteLine("\nIngen film fundet med det TitleId.");
-
-        Pause();
-    }
-
-    // ---------- DELETE ----------
-    static void DeleteMovie()
-    {
-        Console.Clear();
-        Console.WriteLine("=== SLET FILM ===");
-
-        Console.Write("Indtast TitleId på filmen: ");
-        string id = Console.ReadLine();
-
-        using var conn = new SqlConnection(connectionString);
-        conn.Open();
-
-        string sql = "DELETE FROM app.Title WHERE TitleId = @id";
-
-        using var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@id", id);
-
-        int rows = cmd.ExecuteNonQuery();
-
-        if (rows > 0)
-            Console.WriteLine("\nFilm slettet ✔");
-        else
-            Console.WriteLine("\nIngen film fundet med det TitleId.");
-
-        Pause();
-    }
-
-    // ---------- PAUSE ----------
-    static void Pause()
-    {
-        Console.WriteLine("\nTryk på en tast for at fortsætte...");
-        Console.ReadKey();
     }
 }
+
+
 
 
